@@ -1,0 +1,323 @@
+module ietf-system-openwrt {
+  namespace "urn:ietf:params:xml:ns:yang:ietf-system-openwrt";
+  prefix "sys";
+
+  import ietf-yang-types {
+    prefix yang;
+  }
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  import ietf-netconf-acm {
+    prefix nacm;
+  }
+
+  import iana-crypt-hash {
+    prefix ianach;
+  }
+
+  
+  revision 2015-03-18 {
+    description
+      "Initial revision.";
+    reference
+      "RFC 7317: A YANG Data Model for Openwrt System Management";
+  }
+
+
+
+
+ /*
+  * Typedefs
+  */
+
+  typedef timezone-name {
+    type string;
+    description
+      "A time zone name as used by the Time Zone Database,
+       sometimes referred to as the 'Olson Database'.
+
+       The exact set of valid values is an implementation-specific
+       matter.  Client discovery of the exact set of time zone names
+       for a particular server is out of scope.";
+    reference
+      "RFC 6557: Procedures for Maintaining the Time Zone Database";
+   }
+
+  /*
+   * Features
+   */
+
+  feature ntp {
+    description
+      "Indicates that the device can be configured to use one or
+       more NTP servers to set the system date and time.";
+  }
+
+  feature timezone-name {
+    description
+      "Indicates that the local time zone on the device
+       can be configured to use the TZ database
+       to set the time zone and manage daylight saving time.";
+    reference
+      "RFC 6557: Procedures for Maintaining the Time Zone Database";
+  }
+
+  container system {
+    description
+      "System group configuration.";
+
+    leaf contact {
+      type string;
+      description
+        "The administrator contact information for the system.
+
+         A server implementation MAY map this leaf to the sysContact
+         MIB object.  Such an implementation needs to use some
+         mechanism to handle the differences in size and characters
+         allowed between this leaf and sysContact.  The definition of
+         such a mechanism is outside the scope of this document.";
+      reference
+        "RFC 3418: Management Information Base (MIB) for the
+                   Simple Network Management Protocol (SNMP)
+                   SNMPv2-MIB.sysContact";
+    }
+    leaf hostname {
+      type inet:domain-name;
+     description
+       "The name of the host.  This name can be a single domain
+        label or the fully qualified domain name of the host.";
+    }
+    leaf location {
+      type string;
+      description
+        "The system location.
+
+         A server implementation MAY map this leaf to the sysLocation
+         MIB object.  Such an implementation needs to use some
+         mechanism to handle the differences in size and characters
+         allowed between this leaf and sysLocation.  The definition
+         of such a mechanism is outside the scope of this document.";
+      reference
+        "RFC 3418: Management Information Base (MIB) for the
+                   Simple Network Management Protocol (SNMP)
+                   SNMPv2-MIB.sysLocation";
+    }
+
+    container clock {
+      description
+        "Configuration of the system date and time properties.";
+
+      choice timezone {
+        description
+          "The system time zone information.";
+
+        case timezone-name {
+          if-feature timezone-name;
+          leaf timezone-name {
+            type timezone-name;
+            description
+              "The TZ database name to use for the system, such
+               as 'Europe/Stockholm'.";
+          }
+        }
+        case timezone-utc-offset {
+          leaf timezone-utc-offset {
+            type int16 {
+              range "-1500 .. 1500";
+            }
+            units "minutes";
+            description
+              "The number of minutes to add to UTC time to
+               identify the time zone for this system.  For example,
+               'UTC - 8:00 hours' would be represented as '-480'.
+               Note that automatic daylight saving time adjustment
+               is not provided if this object is used.";
+          }
+        }
+      }
+    }
+
+    container ntp {
+      if-feature ntp;
+      presence
+        "Enables the NTP client unless the 'enabled' leaf
+         (which defaults to 'true') is set to 'false'";
+      description
+        "Configuration of the NTP client.";
+
+      leaf enabled {
+        type boolean;
+        default true;
+        description
+          "Indicates that the system should attempt to
+           synchronize the system clock with an NTP server
+           from the 'ntp/server' list.";
+      }
+      list server {
+        key name;
+        description
+          "List of NTP servers to use for system clock
+           synchronization.  If '/system/ntp/enabled'
+           is 'true', then the system will attempt to
+           contact and utilize the specified NTP servers.";
+
+        leaf name {
+          type string;
+          description
+            "An arbitrary name for the NTP server.";
+        }
+      }
+    }
+
+    container dns-resolver {
+      description
+        "Configuration of the DNS resolver.";
+
+      leaf-list search {
+        type inet:domain-name;
+        ordered-by user;
+        description
+          "An ordered list of domains to search when resolving
+           a host name.";
+      }
+      list server {
+        key name;
+        ordered-by user;
+        description
+          "List of the DNS servers that the resolver should query.
+
+           When the resolver is invoked by a calling application, it
+           sends the query to the first name server in this list.  If
+           no response has been received within 'timeout' seconds,
+           the resolver continues with the next server in the list.
+           If no response is received from any server, the resolver
+           continues with the first server again.  When the resolver
+           has traversed the list 'attempts' times without receiving
+           any response, it gives up and returns an error to the
+           calling application.
+
+           Implementations MAY limit the number of entries in this
+           list.";
+
+        leaf name {
+          type string;
+          description
+            "An arbitrary name for the DNS server.";
+        }
+      }
+    }
+  }
+
+  /*
+   * Operational state data nodes
+   */
+
+  container system-state {
+    config false;
+    description
+      "System group operational state.";
+
+    container platform {
+      description
+        "Contains vendor-specific information for
+         identifying the system platform and operating system.";
+      reference
+        "IEEE Std 1003.1-2008 - sys/utsname.h";
+
+      leaf os-name {
+        type string;
+        description
+          "The name of the operating system in use -
+           for example, 'Linux'.";
+        reference
+          "IEEE Std 1003.1-2008 - utsname.sysname";
+      }
+      leaf os-release {
+        type string;
+        description
+          "The current release level of the operating
+           system in use.  This string MAY indicate
+           the OS source code revision.";
+        reference
+          "IEEE Std 1003.1-2008 - utsname.release";
+      }
+      leaf os-version {
+        type string;
+        description
+          "The current version level of the operating
+           system in use.  This string MAY indicate
+           the specific OS build date and target variant
+           information.";
+        reference
+          "IEEE Std 1003.1-2008 - utsname.version";
+      }
+      leaf machine {
+        type string;
+        description
+          "A vendor-specific identifier string representing
+           the hardware in use.";
+        reference
+          "IEEE Std 1003.1-2008 - utsname.machine";
+      }
+    }
+
+    container clock {
+      description
+        "Monitoring of the system date and time properties.";
+
+      leaf current-datetime {
+        type yang:date-and-time;
+        description
+          "The current system date and time.";
+      }
+
+
+      leaf boot-datetime {
+        type yang:date-and-time;
+        description
+          "The system date and time when the system last restarted.";
+      }
+    }
+  }
+
+  rpc set-current-datetime {
+    nacm:default-deny-all;
+    description
+      "Set the /system-state/clock/current-datetime leaf
+       to the specified value.
+
+       If the system is using NTP (i.e., /system/ntp/enabled
+       is set to 'true'), then this operation will fail with
+       error-tag 'operation-failed' and error-app-tag value of
+       'ntp-active'.";
+    input {
+      leaf current-datetime {
+        type yang:date-and-time;
+        mandatory true;
+        description
+          "The current system date and time.";
+      }
+    }
+  }
+
+  rpc system-restart {
+    nacm:default-deny-all;
+    description
+      "Request that the entire system be restarted immediately.
+       A server SHOULD send an rpc reply to the client before
+       restarting the system.";
+  }
+
+  rpc system-shutdown {
+    nacm:default-deny-all;
+    description
+      "Request that the entire system be shut down immediately.
+       A server SHOULD send an rpc reply to the client before
+       shutting down the system.";
+  }
+
+}
+
