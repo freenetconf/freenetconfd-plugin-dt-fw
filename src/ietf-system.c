@@ -29,7 +29,7 @@
 #include "freenetconfd/freenetconfd.h"
 #include "freenetconfd/datastore.h"
 #include "freenetconfd/plugin.h"
-//#include "freenetconfd/netconf.h"
+#include "freenetconfd/netconf.h"
 #include "firmware_upgrade.h"
 
 int rpc_set_current_datetime(struct rpc_data *data);
@@ -40,7 +40,7 @@ __unused struct module *init();
 __unused void destroy();
 
 struct module m;
-char *ns = "urn:ietf:params:xml:ns:yang:ietf-system-openwrt";
+char *ns = "urn:ietf:params:xml:ns:yang:ietf-system";
 
 datastore_t root = DATASTORE_ROOT_DEFAULT;
 
@@ -986,8 +986,8 @@ int rpc_set_current_datetime(struct rpc_data *data)
 	if (owrt_char_is_true(ntp_enabled_value))
 	{
 		// fail with error-tag 'operation-failed' and error-app-tag value of 'ntp-active'
-//		data->error = netconf_rpc_error("NTP active!",
-//									   RPC_ERROR_TAG_OPERATION_FAILED, RPC_ERROR_TYPE_APPLICATION, RPC_ERROR_SEVERITY_ERROR, "ntp-active");
+		data->error = netconf_rpc_error("NTP active!",
+									   RPC_ERROR_TAG_OPERATION_FAILED, RPC_ERROR_TYPE_APPLICATION, RPC_ERROR_SEVERITY_ERROR, "ntp-active");
 		return RPC_ERROR;
 	}
 
@@ -1016,8 +1016,8 @@ int rpc_system_restart(struct rpc_data *data)
 
 	if (0 == (reboot_pid = fork()))
 	{
-		reboot(LINUX_REBOOT_CMD_CAD_OFF);
-		exit(1); /* never reached if reboot cmd succeeds */
+		execlp("/sbin/reboot", "/sbin/reboot", NULL);
+		exit(1);
 	}
 
 	if (reboot_pid < 0)
